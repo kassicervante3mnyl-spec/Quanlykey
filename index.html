@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADMIN // THIÊN TRẦN</title>
+<style>
+  body{background:#050507;color:#cfcfcf;font-family:monospace;padding:20px;margin:0}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{color:#ff2d55;font-size:20px;letter-spacing:4px;margin:0 0 4px}
+  .sub{color:#5a5a5a;font-size:11px;margin-bottom:24px}
+  .box{background:#0a0a0d;border:1px solid #ff2d55;padding:24px;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th,td{padding:8px;border-bottom:1px solid #1a1a1a;text-align:left}
+  th{color:#ff2d55;text-transform:uppercase;font-size:10px}
+  td{color:#aaa}
+  td.k{color:#3f3;font-family:monospace;word-break:break-all}
+  button{padding:6px 12px;background:#0d0d0f;border:1px solid #ff2d55;color:#ff2d55;font-family:inherit;font-size:11px;cursor:pointer}
+  button:hover{background:#ff2d55;color:#000}
+  #gate{position:fixed;inset:0;z-index:100;background:#050507;display:flex;align-items:center;justify-content:center;padding:20px}
+  #gate.h{display:none}
+  .gb{background:#0a0a0d;border:1px solid #ff2d55;padding:40px 32px;max-width:420px;width:100%}
+  .gt{color:#ff2d55;font-size:20px;font-weight:bold;letter-spacing:4px;text-align:center;margin-bottom:6px}
+  #gi{width:100%;padding:12px;background:#000;border:1px solid #222;color:#ff2d55;font-size:13px;margin-bottom:16px;outline:none;box-sizing:border-box}
+  #gm{color:#ff2d55;font-size:12px;text-align:center;margin-top:14px}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gb">
+    <div class="gt">ADMIN // THIÊN TRẦN</div>
+    <input type="password" id="gi" placeholder="nhập admin key..." autocomplete="off">
+    <button onclick="tryGate()" style="width:100%;padding:12px;background:#ff2d55;color:#000;border:1px solid #ff2d55;font-weight:bold;cursor:pointer">xác nhận</button>
+    <div id="gm"></div>
+  </div>
+</div>
+
+<div class="wrap" id="body" style="display:none">
+  <h1>ADMIN // THIÊN TRẦN</h1>
+  <div class="sub">// danh sách key · revoke từ xa</div>
+  <div class="box">
+    <table>
+      <thead><tr><th>key</th><th>hạn</th><th>bind fp</th><th>trạng thái</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div style="margin-top:16px"><button onclick="loadList()">refresh</button></div>
+  </div>
+</div>
+
+<script>
+var $=function(i){return document.getElementById(i)};
+var API='https://YOUR-RENDER-URL.onrender.com'; // <-- SỬA
+var ADMIN='THIENTRANNHAVUACODUACONGARENA';
+var TOKEN='';
+
+function api(path,method,body,cb){
+  var x=new XMLHttpRequest();
+  x.open(method,API+path,true);
+  x.setRequestHeader('Content-Type','application/json');
+  if(TOKEN)x.setRequestHeader('X-Admin',TOKEN);
+  x.onload=function(){try{cb(null,JSON.parse(x.responseText))}catch(e){cb('parse',null)}};
+  x.onerror=function(){cb('net',null)};
+  x.send(body?JSON.stringify(body):null);
+}
+
+function tryGate(){
+  var v=($('gi').value||'').trim();
+  if(v!==ADMIN){$('gm').textContent='✘ key sai';return}
+  TOKEN=v;
+  $('gate').className='h';$('body').style.display='block';
+  loadList();
+}
+
+function loadList(){
+  api('/list','GET',null,function(err,res){
+    var tb=$('tbody');
+    if(err||!res.ok){tb.innerHTML='<tr><td colspan="5" style="color:#ff2d55">lỗi: '+(err||res.reason)+'</td></tr>';return}
+    if(!res.keys.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#444;padding:20px">chưa có key</td></tr>';return}
+    var h='';
+    for(var i=0;i<res.keys.length;i++){
+      var k=res.keys[i];
+      h+='<tr><td class="k">'+k.key+'</td><td>'+(k.days===0?'∞':k.days+' ngày')+'</td><td style="font-size:9px">'+(k.fp||'-')+'</td><td>'+(k.revoked?'<span style="color:#ff2d55">revoked</span>':'<span style="color:#3f3">active</span>')+'</td><td>'+
+        '<button onclick="revoke(\''+k.key+'\')">'+(k.revoked?'unrevoke':'revoke')+'</button> '+
+        '<button onclick="resetBind(\''+k.key+'\')">reset bind</button>'+
+      '</td></tr>';
+    }
+    tb.innerHTML=h;
+  });
+}
+
+function revoke(key){
+  api('/revoke','POST',{key:key},function(err,res){
+    if(err||!res.ok)return alert('lỗi: '+(err||res.reason));
+    loadList();
+  });
+}
+
+function resetBind(key){
+  if(!confirm('reset bind key này? người dùng phải nhập lại'))return;
+  api('/reset-bind','POST',{key:key},function(err,res){
+    if(err||!res.ok)return alert('lỗi: '+(err||res.reason));
+    loadList();
+  });
+}
+</script>
+</body>
+</html>
